@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-Process *)",
+      "PowerShell($git = \"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\"; Write-Output \"=== .gitignore contents ===\"; if \\(Test-Path .gitignore\\) { Get-Content .gitignore } else { Write-Output \"\\(no .gitignore\\)\" }; Write-Output \"\"; Write-Output \"=== Files git would track \\(respecting .gitignore\\) ===\"; & $git ls-files --others --exclude-standard --cached; Write-Output \"\"; Write-Output \"=== Top-level directory contents \\(for context\\) ===\"; Get-ChildItem -Force | Select-Object Mode, Name)",
+      "PowerShell(git add *)"
+    ]
+  }
+}
