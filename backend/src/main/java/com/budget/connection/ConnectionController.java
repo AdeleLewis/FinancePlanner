@@ -147,10 +147,12 @@ public class ConnectionController {
 
     /** Secret-free projection of a {@link BankConnection} for the API. */
     public record ConnectionView(Long id, String provider, String providerName, String displayName,
-                                 String status, Instant lastSyncedAt, String lastError) {
+                                 String authType, String status, Instant lastSyncedAt, String lastError,
+                                 Instant createdAt) {
         static ConnectionView of(BankConnection c) {
             return new ConnectionView(c.getId(), c.getProvider().name(), c.getProvider().getDisplayName(),
-                    c.getDisplayName(), c.getStatus().name(), c.getLastSyncedAt(), c.getLastError());
+                    c.getDisplayName(), c.getProvider().getAuthType().name(), c.getStatus().name(),
+                    c.getLastSyncedAt(), c.getLastError(), c.getCreatedAt());
         }
     }
 

@@ -22,9 +22,11 @@ export type BankConnection = {
   provider: string
   providerName: string
   displayName: string
+  authType: 'OAUTH2' | 'API_KEY' | 'AGGREGATOR'
   status: 'PENDING' | 'CONNECTED' | 'NEEDS_REAUTH' | 'ERROR'
   lastSyncedAt: string | null
   lastError: string | null
+  createdAt: string
 }
 
 export type SyncResult = {
