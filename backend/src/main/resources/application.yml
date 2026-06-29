@@ -1,6 +1,8 @@
 spring:
   application:
     name: budget
+  # Default datasource is the embedded H2 file DB (fine for single-user localhost).
+  # Activate the "postgres" profile (SPRING_PROFILES_ACTIVE=postgres) to point at Postgres instead.
   datasource:
     url: jdbc:h2:file:./data/budget;AUTO_SERVER=TRUE
     driver-class-name: org.h2.Driver
@@ -13,10 +15,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  # H2 web console disabled — it would expose the database (including secret columns) over HTTP.
   h2:
     console:
-      enabled: true
-      path: /h2
+      enabled: false
   servlet:
     multipart:
       max-file-size: 10MB
@@ -25,12 +27,18 @@ spring:
 server:
   port: 8080
 
-# Bank/brokerage connector credentials. Leave blank to keep a connector visible but disabled.
-# Supply real values via environment variables (never commit secrets):
-#   Monzo  -> register a *confidential* client at https://developers.monzo.com to get a refresh token
-#   Plaid  -> https://dashboard.plaid.com (Santander + Amex are reached through Plaid)
-#   Trading 212 -> no server config; each connection brings its own in-app API key
 app:
+  # Encryption key for secret columns at rest (bank tokens / API keys). Supply a long, random value via
+  # the APP_ENCRYPTION_KEY environment variable. If blank, secrets are stored in PLAINTEXT (dev only) and
+  # the app logs a warning on startup. Keep this stable — rotating it cannot decrypt existing rows.
+  security:
+    encryption-key: ${APP_ENCRYPTION_KEY:}
+
+  # Bank/brokerage connector credentials. Leave blank to keep a connector visible but disabled.
+  # Supply real values via environment variables (never commit secrets):
+  #   Monzo  -> register a *confidential* client at https://developers.monzo.com to get a refresh token
+  #   Plaid  -> https://dashboard.plaid.com (Santander + Amex are reached through Plaid)
+  #   Trading 212 -> no server config; each connection brings its own in-app API key
   connectors:
     monzo:
       client-id: ${MONZO_CLIENT_ID:}

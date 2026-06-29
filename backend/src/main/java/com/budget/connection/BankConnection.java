@@ -1,6 +1,8 @@
 package com.budget.connection;
 
+import com.budget.security.EncryptedStringConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -14,9 +16,10 @@ import java.time.Instant;
 /**
  * A linked account for one {@link BankProvider}, holding the secrets and state needed to sync it.
  *
- * <p>NOTE: tokens/keys are stored in plaintext here for a single-user, self-hosted, localhost-first
- * app (see PLAN.md "No auth"). Before exposing this beyond localhost, encrypt the secret columns at
- * rest (e.g. JPA {@code AttributeConverter} backed by a key in the environment).
+ * <p>The secret columns ({@link #accessToken}, {@link #refreshToken}, {@link #apiKey}) are encrypted at
+ * rest via {@link EncryptedStringConverter} (AES-256-GCM, key from the environment) so a stolen DB file
+ * does not expose tokens. Set {@code APP_ENCRYPTION_KEY} to enable it; without a key they fall back to
+ * plaintext with a startup warning. Columns are sized generously to hold the base64 ciphertext.
  */
 @Entity
 @Table(name = "bank_connections")
@@ -37,20 +40,23 @@ public class BankConnection {
     @Column(nullable = false, length = 32)
     private ConnectionStatus status = ConnectionStatus.PENDING;
 
-    /** OAuth bearer token (Monzo) — null for other auth types. */
-    @Column(name = "access_token", length = 2048)
+    /** OAuth bearer token (Monzo) — null for other auth types. Encrypted at rest. */
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "access_token", length = 4096)
     private String accessToken;
 
-    /** OAuth refresh token (Monzo confidential client) — null otherwise. */
-    @Column(name = "refresh_token", length = 2048)
+    /** OAuth refresh token (Monzo confidential client) — null otherwise. Encrypted at rest. */
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "refresh_token", length = 4096)
     private String refreshToken;
 
     /** When {@link #accessToken} expires, for proactive refresh. */
     @Column(name = "access_token_expires_at")
     private Instant accessTokenExpiresAt;
 
-    /** Static API key (Trading 212) or aggregator access token (Plaid item) — null otherwise. */
-    @Column(name = "api_key", length = 2048)
+    /** Static API key (Trading 212) or aggregator access token (Plaid item) — null otherwise. Encrypted at rest. */
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "api_key", length = 4096)
     private String apiKey;
 
     /** Provider-side account/item identifier scoped by the connector (e.g. Monzo account id). */

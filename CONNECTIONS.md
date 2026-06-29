@@ -58,24 +58,42 @@ A small pluggable layer under `com.budget.connection`:
 
 Adding another bank = implement `BankConnector` and add a `BankProvider` enum value.
 
-### Finishing the Plaid (Santander/Amex) flow
+### The Plaid (Santander/Amex) flow
 
-The backend is complete: `/api/connections/plaid/link-token` issues a Link token and
-`/api/connections/plaid/exchange` swaps the Link `public_token` for a stored access
-token. The only remaining piece is opening the Plaid Link modal in the browser, which
-needs the Plaid Link SDK:
-
-```bash
-npm i @plaid/react-plaid-link   # in frontend/
-```
-
-Then call `usePlaidLink({ token: linkToken, onSuccess })` and POST the returned
-`public_token` to `/api/connections/plaid/exchange`. See the `PlaidConnect`
-component in `frontend/src/pages/Connections.tsx` for where to wire it in.
+End to end and wired up: `/api/connections/plaid/link-token` issues a Link token, the
+`PlaidConnect` component in `frontend/src/pages/Connections.tsx` opens Plaid Link via
+`usePlaidLink` (`react-plaid-link`), and the returned `public_token` is POSTed to
+`/api/connections/plaid/exchange`, which swaps it for a stored access token.
 
 ## Security note
 
-This is a single-user, localhost-first app, so tokens/keys are stored in plaintext
-in the H2 database. Before exposing it beyond localhost, encrypt the secret columns
-on `BankConnection` at rest (e.g. a JPA `AttributeConverter` keyed from the
-environment) and put the app behind the single-password gate noted in `PLAN.md`.
+Secret columns on `BankConnection` (`access_token`, `refresh_token`, `api_key`) are
+**encrypted at rest** with AES-256-GCM via a JPA `AttributeConverter`
+(`com.budget.security.EncryptedStringConverter`). The key is derived from
+`APP_ENCRYPTION_KEY` and never stored in the database, so a stolen DB file or backup
+does not expose tokens. If the key is unset the app falls back to plaintext and logs a
+warning — set it before exposing the app beyond localhost:
+
+```bash
+export APP_ENCRYPTION_KEY=$(openssl rand -base64 32)   # keep this stable; rotating it cannot decrypt old rows
+```
+
+Legacy rows written before encryption was enabled are read back transparently (they
+lack the `enc:v1:` marker) and re-encrypted on the next write. This protects against
+DB-file theft, not full host compromise (an attacker with the running process also has
+the key) — step up to a KMS/HSM for that. The H2 web console is disabled for the same
+reason. Also put the app behind the single-password gate noted in `PLAN.md`.
+
+### Choosing a database
+
+The default is an embedded H2 file DB — fine for single-user localhost. A `postgres`
+Spring profile and a root `docker-compose.yml` are provided for when you want
+durability, real concurrency, or to deploy off-box:
+
+```bash
+docker compose up -d db
+cd backend && SPRING_PROFILES_ACTIVE=postgres APP_ENCRYPTION_KEY=... ./gradlew bootRun
+```
+
+Switching databases does **not** change the encryption story — secrets are encrypted by
+the app before they reach either DB.

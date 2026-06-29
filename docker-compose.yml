@@ -1,0 +1,26 @@
+# Optional Postgres for the backend, as an alternative to the default embedded H2.
+#
+#   docker compose up -d db
+#   SPRING_PROFILES_ACTIVE=postgres APP_ENCRYPTION_KEY=<long-random> ./gradlew bootRun   # (in backend/)
+#
+# Defaults match backend/src/main/resources/application-postgres.yml. Override via env in production.
+services:
+  db:
+    image: postgres:17
+    container_name: budget-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-budget}
+      POSTGRES_USER: ${POSTGRES_USER:-budget}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-budget}
+    ports:
+      - "5432:5432"
+    volumes:
+      - budget-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-budget} -d ${POSTGRES_DB:-budget}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  budget-pgdata:

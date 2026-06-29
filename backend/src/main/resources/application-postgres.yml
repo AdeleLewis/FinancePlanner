@@ -1,0 +1,17 @@
+# Postgres profile — activate with SPRING_PROFILES_ACTIVE=postgres.
+# Pairs with the docker-compose.yml at the repo root (matching db name / user / password defaults).
+# Override any value via the listed environment variables in a real deployment.
+spring:
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/budget}
+    driver-class-name: org.postgresql.Driver
+    username: ${POSTGRES_USER:budget}
+    password: ${POSTGRES_PASSWORD:budget}
+  jpa:
+    hibernate:
+      # "update" is convenient while iterating; switch to a migration tool (Flyway/Liquibase)
+      # before this holds data you care about, and set this to "validate".
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
