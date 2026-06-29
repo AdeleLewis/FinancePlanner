@@ -2,11 +2,20 @@ import { useState } from 'react'
 import Dashboard from './pages/Dashboard'
 import Upload from './pages/Upload'
 import Savings from './pages/Savings'
+import Connections from './pages/Connections'
 
-type Tab = 'dashboard' | 'upload' | 'savings'
+type Tab = 'dashboard' | 'upload' | 'connections' | 'savings'
+
+function initialTab(): Tab {
+  // Honour ?tab=connections, used by the Monzo OAuth callback redirect.
+  const requested = new URLSearchParams(window.location.search).get('tab')
+  return requested === 'connections' || requested === 'upload' || requested === 'savings'
+    ? requested
+    : 'dashboard'
+}
 
 function App() {
-  const [tab, setTab] = useState<Tab>('dashboard')
+  const [tab, setTab] = useState<Tab>(initialTab)
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -20,6 +29,9 @@ function App() {
             <TabButton active={tab === 'upload'} onClick={() => setTab('upload')}>
               Upload
             </TabButton>
+            <TabButton active={tab === 'connections'} onClick={() => setTab('connections')}>
+              Connections
+            </TabButton>
             <TabButton active={tab === 'savings'} onClick={() => setTab('savings')}>
               Savings
             </TabButton>
@@ -29,6 +41,7 @@ function App() {
       <main className="max-w-6xl mx-auto px-6 py-8">
         {tab === 'dashboard' && <Dashboard />}
         {tab === 'upload' && <Upload />}
+        {tab === 'connections' && <Connections />}
         {tab === 'savings' && <Savings />}
       </main>
     </div>

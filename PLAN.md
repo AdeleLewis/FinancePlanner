@@ -103,7 +103,17 @@ aside — the backend module will own the new Java source root.
 
 ## Feature Breakdown
 
-### 1. CSV Upload & Parsing
+### 1. Statement Import — CSV upload **or** direct bank API
+
+Two ways in, sharing the same categorise-and-store pipeline:
+
+- **Bank/brokerage APIs** (see `CONNECTIONS.md`) — link Monzo and Trading 212 via
+  their free native APIs, and Santander/Amex through the Plaid Open Banking
+  aggregator. Implemented under `com.budget.connection` behind a pluggable
+  `BankConnector` interface; synced rows are de-duplicated by provider transaction id.
+- **CSV upload** (below) — kept as a fallback and for providers without a connection.
+
+#### CSV Upload & Parsing
 - Endpoint: `POST /api/statements` (multipart/form-data)
 - Frontend: drag-and-drop zone → POST file → show row preview before commit
 - Backend: parse with Apache Commons CSV, autodetect column mapping (date, description, amount) by header name. Allow user to confirm/remap if ambiguous.

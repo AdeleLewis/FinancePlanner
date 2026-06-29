@@ -5,6 +5,33 @@ export type Transaction = {
   amount: number
   category: string
   statementId: number | null
+  source?: string | null
+  externalId?: string | null
+}
+
+export type ProviderInfo = {
+  id: string
+  displayName: string
+  authType: 'OAUTH2' | 'API_KEY' | 'AGGREGATOR'
+  description: string
+  configured: boolean
+}
+
+export type BankConnection = {
+  id: number
+  provider: string
+  providerName: string
+  displayName: string
+  status: 'PENDING' | 'CONNECTED' | 'NEEDS_REAUTH' | 'ERROR'
+  lastSyncedAt: string | null
+  lastError: string | null
+}
+
+export type SyncResult = {
+  connectionId: number
+  imported: number
+  success: boolean
+  error: string | null
 }
 
 export type Statement = {

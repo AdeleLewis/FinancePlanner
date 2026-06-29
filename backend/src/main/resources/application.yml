@@ -24,3 +24,21 @@ spring:
 
 server:
   port: 8080
+
+# Bank/brokerage connector credentials. Leave blank to keep a connector visible but disabled.
+# Supply real values via environment variables (never commit secrets):
+#   Monzo  -> register a *confidential* client at https://developers.monzo.com to get a refresh token
+#   Plaid  -> https://dashboard.plaid.com (Santander + Amex are reached through Plaid)
+#   Trading 212 -> no server config; each connection brings its own in-app API key
+app:
+  connectors:
+    monzo:
+      client-id: ${MONZO_CLIENT_ID:}
+      client-secret: ${MONZO_CLIENT_SECRET:}
+      redirect-uri: ${MONZO_REDIRECT_URI:http://localhost:8080/api/connections/monzo/callback}
+    trading212:
+      environment: ${TRADING212_ENV:live}   # "live" or "demo"
+    plaid:
+      client-id: ${PLAID_CLIENT_ID:}
+      secret: ${PLAID_SECRET:}
+      environment: ${PLAID_ENV:sandbox}      # "sandbox", "development" or "production"

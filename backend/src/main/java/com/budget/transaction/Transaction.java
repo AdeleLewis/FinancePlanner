@@ -33,6 +33,14 @@ public class Transaction {
     @Column(name = "statement_id")
     private Long statementId;
 
+    /** Where this row came from, e.g. "CSV", "MONZO", "TRADING212". Null for legacy CSV rows. */
+    @Column(length = 32)
+    private String source;
+
+    /** Provider-native transaction id, used to de-duplicate repeated API syncs. Null for CSV rows. */
+    @Column(name = "external_id", length = 128)
+    private String externalId;
+
     protected Transaction() {
     }
 
@@ -40,6 +48,12 @@ public class Transaction {
         this.date = date;
         this.description = description;
         this.amount = amount;
+    }
+
+    public Transaction(LocalDate date, String description, BigDecimal amount, String source, String externalId) {
+        this(date, description, amount);
+        this.source = source;
+        this.externalId = externalId;
     }
 
     public Long getId() {
@@ -72,5 +86,13 @@ public class Transaction {
 
     public void setStatementId(Long statementId) {
         this.statementId = statementId;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public String getExternalId() {
+        return externalId;
     }
 }
