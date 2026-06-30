@@ -96,7 +96,8 @@ public class ConnectionService {
                 if (tx.externalId() != null && !seen.add(tx.externalId())) {
                     continue;   // already imported, or a duplicate within this batch
                 }
-                Transaction entity = new Transaction(tx.date(), tx.description(), tx.amount(), source, tx.externalId());
+                Transaction entity = new Transaction(tx.date(), tx.description(), tx.amount(), source,
+                        tx.externalId(), tx.providerCategory());
                 categorizer.apply(entity);
                 toSave.add(entity);
             }

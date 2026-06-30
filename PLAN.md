@@ -120,9 +120,18 @@ Two ways in, sharing the same categorise-and-store pipeline:
 - Persist `Statement` + N `Transaction` rows in one transaction.
 
 ### 2. Auto-Categorization
-- Seed default categories: Groceries, Transport, Eating Out, Rent/Mortgage, Utilities, Entertainment, Income, Transfers, Other.
-- Rule-based matching on `description` against `Category.keywords` (case-insensitive contains).
-- Frontend: edit category per transaction → updates a keyword rule retroactively (optional).
+Layered pipeline in `com.budget.category.Categorizer`, strongest signal first (each stage only runs if the
+previous found nothing), so the result improves over time instead of relying on a fixed keyword list:
+1. **Learned** — merchant→category mappings the user has taught us (`MerchantCategory`), keyed on a
+   normalised merchant name (`MerchantNormalizer` strips store numbers, locations, card-processor prefixes).
+   Most trusted: it's the user's own decision.
+2. **Provider** — the bank/aggregator's own classification (Monzo `category`, Plaid
+   `personal_finance_category`), mapped to our set by `ProviderCategoryMapper`.
+3. **Keywords** — the built-in merchant-name list, kept as a fallback (mainly for CSV rows).
+4. **Uncategorized**.
+- Frontend: edit category per transaction (dropdown in the transactions table) → `POST /transactions/{id}/category`,
+  which records the choice for that merchant so future imports follow it. Manually-set rows are flagged
+  (`userCategorized`) and left untouched by bulk re-categorisation.
 
 ### 3. Dashboard Charts (Recharts)
 - **Donut**: spending by category (current month)

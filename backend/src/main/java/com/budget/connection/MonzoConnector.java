@@ -110,7 +110,7 @@ public class MonzoConnector implements BankConnector {
                 continue;
             }
             LocalDate date = OffsetDateTime.parse(tx.created()).atZoneSameInstant(ZoneOffset.UTC).toLocalDate();
-            result.add(new NormalizedTransaction(tx.id(), date, describe(tx), minorToMajor(tx.amount())));
+            result.add(new NormalizedTransaction(tx.id(), date, describe(tx), minorToMajor(tx.amount()), tx.category()));
         }
         return result;
     }
@@ -220,8 +220,8 @@ public class MonzoConnector implements BankConnector {
     private record TransactionsResponse(List<MonzoTransaction> transactions) {
     }
 
-    private record MonzoTransaction(String id, Long amount, String created, String description, Merchant merchant,
-                                    Map<String, Object> metadata) {
+    private record MonzoTransaction(String id, Long amount, String created, String description, String category,
+                                    Merchant merchant, Map<String, Object> metadata) {
     }
 
     private record Merchant(String name) {

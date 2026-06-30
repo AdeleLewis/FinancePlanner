@@ -41,6 +41,14 @@ public class Transaction {
     @Column(name = "external_id", length = 128)
     private String externalId;
 
+    /** The provider's own category (Monzo/Plaid), kept so re-categorisation can reuse it. Null for CSV rows. */
+    @Column(name = "provider_category", length = 64)
+    private String providerCategory;
+
+    /** True once the user has manually set the category, so bulk re-categorisation won't overwrite it. */
+    @Column(name = "user_categorized", nullable = false)
+    private boolean userCategorized = false;
+
     protected Transaction() {
     }
 
@@ -54,6 +62,12 @@ public class Transaction {
         this(date, description, amount);
         this.source = source;
         this.externalId = externalId;
+    }
+
+    public Transaction(LocalDate date, String description, BigDecimal amount, String source, String externalId,
+                       String providerCategory) {
+        this(date, description, amount, source, externalId);
+        this.providerCategory = providerCategory;
     }
 
     public Long getId() {
@@ -94,5 +108,21 @@ public class Transaction {
 
     public String getExternalId() {
         return externalId;
+    }
+
+    public String getProviderCategory() {
+        return providerCategory;
+    }
+
+    public void setProviderCategory(String providerCategory) {
+        this.providerCategory = providerCategory;
+    }
+
+    public boolean isUserCategorized() {
+        return userCategorized;
+    }
+
+    public void setUserCategorized(boolean userCategorized) {
+        this.userCategorized = userCategorized;
     }
 }

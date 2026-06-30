@@ -131,7 +131,9 @@ public abstract class PlaidConnector implements BankConnector {
                 ? tx.merchant_name() : tx.name();
         // Plaid signs outflows positive; flip to our convention (negative = money out).
         BigDecimal amount = tx.amount().negate();
-        return new NormalizedTransaction(tx.transaction_id(), date, description, amount);
+        String providerCategory = tx.personal_finance_category() != null
+                ? tx.personal_finance_category().primary() : null;
+        return new NormalizedTransaction(tx.transaction_id(), date, description, amount, providerCategory);
     }
 
     private <T> T post(String path, Map<String, Object> body, Class<T> type) {
@@ -162,6 +164,9 @@ public abstract class PlaidConnector implements BankConnector {
     }
 
     private record PlaidTransaction(String transaction_id, String date, String name, String merchant_name,
-                                    BigDecimal amount) {
+                                    BigDecimal amount, PersonalFinanceCategory personal_finance_category) {
+    }
+
+    private record PersonalFinanceCategory(String primary, String detailed) {
     }
 }

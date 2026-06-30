@@ -7,6 +7,8 @@ export type Transaction = {
   statementId: number | null
   source?: string | null
   externalId?: string | null
+  providerCategory?: string | null
+  userCategorized?: boolean
 }
 
 export type ProviderInfo = {

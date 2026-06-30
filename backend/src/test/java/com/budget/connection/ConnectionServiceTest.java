@@ -31,13 +31,16 @@ class ConnectionServiceTest {
     @Autowired
     private TransactionRepository transactions;
 
+    @Autowired
+    private Categorizer categorizer;
+
     private FakeConnector connector;
     private ConnectionService service;
 
     @BeforeEach
     void setUp() {
         connector = new FakeConnector();
-        service = new ConnectionService(List.of(connector), connections, transactions, new Categorizer());
+        service = new ConnectionService(List.of(connector), connections, transactions, categorizer);
     }
 
     @Test

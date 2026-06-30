@@ -109,7 +109,19 @@ public class Trading212Connector implements BankConnector {
         String externalId = item.reference() != null && !item.reference().isBlank()
                 ? item.reference()
                 : type + ":" + item.dateTime() + ":" + item.amount();
-        return new NormalizedTransaction(externalId, date, description, amount);
+        return new NormalizedTransaction(externalId, date, description, amount, providerCategory(type));
+    }
+
+    /** Map a Trading 212 cash-movement type to a category token the ProviderCategoryMapper understands. */
+    private static String providerCategory(String type) {
+        return switch (type) {
+            case "DEPOSIT" -> "DEPOSIT";
+            case "WITHDRAW", "WITHDRAWAL" -> "WITHDRAWAL";
+            case "DIVIDEND" -> "DIVIDEND";
+            case "INTEREST" -> "INTEREST";
+            case "FEE", "FEE_REFUND" -> "FEE";
+            default -> null;
+        };
     }
 
     private static String friendlyType(String type) {

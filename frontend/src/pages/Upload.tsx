@@ -22,6 +22,11 @@ export default function Upload() {
     queryFn: () => api.get<Transaction[]>('/transactions'),
   })
 
+  const categoriesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get<string[]>('/transactions/categories'),
+  })
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'text/csv': ['.csv'] },
     multiple: false,
@@ -101,9 +106,7 @@ export default function Upload() {
                     <td className="px-4 py-2 text-gray-600 tabular-nums">{t.date}</td>
                     <td className="px-4 py-2">{t.description}</td>
                     <td className="px-4 py-2">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                        {t.category}
-                      </span>
+                      <CategoryCell transaction={t} categories={categoriesQuery.data ?? []} />
                     </td>
                     <td
                       className={
@@ -121,5 +124,46 @@ export default function Upload() {
         )}
       </div>
     </div>
+  )
+}
+
+function CategoryCell({ transaction, categories }: { transaction: Transaction; categories: string[] }) {
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (category: string) =>
+      api.post(`/transactions/${transaction.id}/category`, { category }),
+    onSuccess: () => {
+      // Re-categorising a merchant is learned server-side, so other rows + insights can change too.
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['insights'] })
+    },
+  })
+
+  // Make sure the current value is always selectable, even if it isn't in the standard list.
+  const options = categories.includes(transaction.category)
+    ? categories
+    : [transaction.category, ...categories]
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <select
+        value={transaction.category}
+        disabled={mutation.isPending}
+        onChange={(e) => mutation.mutate(e.target.value)}
+        aria-label={`Category for ${transaction.description}`}
+        className="text-xs font-medium bg-gray-100 text-gray-700 rounded px-2 py-1 border border-transparent hover:border-gray-300 focus:border-gray-400 focus:outline-none disabled:opacity-50"
+      >
+        {options.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+      {transaction.userCategorized && (
+        <span className="text-gray-400" title="You set this category">
+          ✓
+        </span>
+      )}
+    </span>
   )
 }
