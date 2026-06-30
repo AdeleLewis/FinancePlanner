@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
@@ -84,7 +85,12 @@ export default function Upload() {
       )}
 
       <div>
-        <h3 className="text-lg font-semibold mb-3">Transactions</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold">Transactions</h3>
+          {transactionsQuery.data && transactionsQuery.data.length > 0 && (
+            <ClearAllButton count={transactionsQuery.data.length} />
+          )}
+        </div>
         {transactionsQuery.isLoading && <p className="text-gray-500">Loading…</p>}
         {transactionsQuery.data && transactionsQuery.data.length === 0 && (
           <p className="text-gray-500">No transactions yet — upload a CSV to get started.</p>
@@ -98,6 +104,7 @@ export default function Upload() {
                   <th className="text-left px-4 py-2 font-medium">Description</th>
                   <th className="text-left px-4 py-2 font-medium">Category</th>
                   <th className="text-right px-4 py-2 font-medium">Amount</th>
+                  <th className="px-4 py-2 font-medium sr-only">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -116,6 +123,9 @@ export default function Upload() {
                     >
                       {formatGBP(t.amount)}
                     </td>
+                    <td className="px-4 py-2 text-right">
+                      <RemoveButton transaction={t} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -124,6 +134,85 @@ export default function Upload() {
         )}
       </div>
     </div>
+  )
+}
+
+function RemoveButton({ transaction }: { transaction: Transaction }) {
+  const queryClient = useQueryClient()
+  const [confirming, setConfirming] = useState(false)
+  const mutation = useMutation({
+    mutationFn: () => api.delete(`/transactions/${transaction.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['insights'] })
+    },
+  })
+
+  // Reset the confirm prompt if the user doesn't follow through.
+  useEffect(() => {
+    if (!confirming) return
+    const timer = setTimeout(() => setConfirming(false), 4000)
+    return () => clearTimeout(timer)
+  }, [confirming])
+
+  return (
+    <button
+      type="button"
+      disabled={mutation.isPending}
+      onClick={() => {
+        if (confirming) {
+          mutation.mutate()
+        } else {
+          setConfirming(true)
+        }
+      }}
+      aria-label={confirming ? `Confirm removing ${transaction.description}` : `Remove ${transaction.description}`}
+      className={
+        'text-xs font-medium rounded px-2 py-1 disabled:opacity-50 ' +
+        (confirming ? 'bg-red-600 text-white' : 'text-gray-500 hover:bg-gray-100')
+      }
+    >
+      {confirming ? 'Confirm?' : 'Remove'}
+    </button>
+  )
+}
+
+function ClearAllButton({ count }: { count: number }) {
+  const queryClient = useQueryClient()
+  const [confirming, setConfirming] = useState(false)
+  const mutation = useMutation({
+    mutationFn: () => api.delete('/transactions'),
+    onSuccess: () => {
+      setConfirming(false)
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['insights'] })
+    },
+  })
+
+  useEffect(() => {
+    if (!confirming) return
+    const timer = setTimeout(() => setConfirming(false), 4000)
+    return () => clearTimeout(timer)
+  }, [confirming])
+
+  return (
+    <button
+      type="button"
+      disabled={mutation.isPending}
+      onClick={() => {
+        if (confirming) {
+          mutation.mutate()
+        } else {
+          setConfirming(true)
+        }
+      }}
+      className={
+        'text-sm font-medium rounded-md px-3 py-1.5 disabled:opacity-50 ' +
+        (confirming ? 'bg-red-600 text-white' : 'text-red-700 hover:bg-red-50 border border-red-200')
+      }
+    >
+      {mutation.isPending ? 'Clearing…' : confirming ? `Delete all ${count}? Click to confirm` : 'Clear all'}
+    </button>
   )
 }
 

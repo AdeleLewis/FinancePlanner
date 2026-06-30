@@ -1,7 +1,9 @@
 package com.budget.transaction;
 
 import com.budget.category.Categorizer;
+import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -69,9 +71,29 @@ public class TransactionController {
         return new RecategorizeResult(automatic.size());
     }
 
+    /** Delete a single transaction. */
+    @DeleteMapping("/{id}")
+    @Transactional
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        transactionRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Delete every transaction. Handy for clearing out test/fake data; returns how many were removed. */
+    @DeleteMapping
+    @Transactional
+    public DeleteResult clear() {
+        long removed = transactionRepository.count();
+        transactionRepository.deleteAll();
+        return new DeleteResult(removed);
+    }
+
     public record CategoryRequest(String category) {
     }
 
     public record RecategorizeResult(int updatedCount) {
+    }
+
+    public record DeleteResult(long deletedCount) {
     }
 }
