@@ -7,6 +7,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.ColumnDefault;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -47,6 +49,7 @@ public class Transaction {
 
     /** True once the user has manually set the category, so bulk re-categorisation won't overwrite it. */
     @Column(name = "user_categorized", nullable = false)
+    @ColumnDefault("false")
     private boolean userCategorized = false;
 
     protected Transaction() {
