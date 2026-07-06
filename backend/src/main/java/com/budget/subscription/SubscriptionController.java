@@ -23,6 +23,9 @@ public class SubscriptionController {
 
     private static final int LOOKBACK_MONTHS = 12;
 
+    /** Matches the {@code merchant_key} column length; longer keys would 500 on the DB constraint. */
+    private static final int MAX_MERCHANT_KEY_LENGTH = 128;
+
     private final TransactionRepository transactionRepository;
     private final SubscriptionDecisionRepository decisionRepository;
 
@@ -59,6 +62,10 @@ public class SubscriptionController {
     public void decide(@RequestBody DecisionRequest request) {
         if (request.merchantKey() == null || request.merchantKey().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "merchantKey is required");
+        }
+        if (request.merchantKey().length() > MAX_MERCHANT_KEY_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "merchantKey must be at most " + MAX_MERCHANT_KEY_LENGTH + " characters");
         }
         final String choice = request.decision();
         if ("UNDECIDED".equals(choice)) {

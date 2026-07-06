@@ -3,8 +3,10 @@ spring:
     name: budget
   # Default datasource is the embedded H2 file DB (fine for single-user localhost).
   # Activate the "postgres" profile (SPRING_PROFILES_ACTIVE=postgres) to point at Postgres instead.
+  # Deliberately no AUTO_SERVER: that flag opens a TCP listener so other processes can attach to the
+  # DB file — this app is the only consumer, so embedded (in-process) mode keeps the file private.
   datasource:
-    url: jdbc:h2:file:./data/budget;AUTO_SERVER=TRUE
+    url: jdbc:h2:file:./data/budget
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
@@ -26,6 +28,9 @@ spring:
 
 server:
   port: 8080
+  # Bind to loopback only: this is a single-user app with no authentication, so it must not be
+  # reachable from the network. Remove this only after adding real auth (and HTTPS).
+  address: localhost
 
 app:
   # Encryption key for secret columns at rest (bank tokens / API keys). Supply a long, random value via

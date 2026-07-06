@@ -14,9 +14,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.view.RedirectView;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -31,12 +31,18 @@ public class ConnectionController {
     /** Where to send the user after the Monzo OAuth round-trip. */
     private static final String FRONTEND_RETURN_URL = "http://localhost:5173/?tab=connections";
 
+    /** How long an issued OAuth state stays valid; anyone taking longer just restarts the flow. */
+    private static final Duration STATE_TTL = Duration.ofMinutes(10);
+
+    /** Far more pending states than one user can legitimately have — hitting this means abuse. */
+    private static final int MAX_PENDING_STATES = 100;
+
     private final ConnectionService service;
     private final MonzoConnector monzoConnector;
     private final BankConnectionRepository connections;
 
-    /** Outstanding OAuth state tokens, to validate the Monzo callback (CSRF guard). */
-    private final Set<String> pendingStates = ConcurrentHashMap.newKeySet();
+    /** Outstanding OAuth state tokens (value = issue time) to validate the Monzo callback (CSRF guard). */
+    private final ConcurrentHashMap<String, Instant> pendingStates = new ConcurrentHashMap<>();
 
     public ConnectionController(ConnectionService service,
                                 MonzoConnector monzoConnector,
@@ -76,15 +82,22 @@ public class ConnectionController {
             return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED)
                     .body(new AuthorizeUrl("Monzo client id/secret not configured on the server"));
         }
+        purgeExpiredStates();
+        if (pendingStates.size() >= MAX_PENDING_STATES) {
+            // Being hammered — drop everything rather than grow without bound. A legitimate
+            // in-flight flow just restarts.
+            pendingStates.clear();
+        }
         String state = UUID.randomUUID().toString();
-        pendingStates.add(state);
+        pendingStates.put(state, Instant.now());
         return ResponseEntity.ok(new AuthorizeUrl(monzoConnector.authorizeUrl(state)));
     }
 
     /** Monzo redirects here with the authorization code; we exchange it and bounce back to the UI. */
     @GetMapping("/monzo/callback")
     public RedirectView monzoCallback(@RequestParam String code, @RequestParam(required = false) String state) {
-        if (state == null || !pendingStates.remove(state)) {
+        purgeExpiredStates();
+        if (state == null || pendingStates.remove(state) == null) {
             return new RedirectView(FRONTEND_RETURN_URL + "&error=invalid_state");
         }
         monzoConnector.completeAuthorization(code);
@@ -128,6 +141,11 @@ public class ConnectionController {
                 displayNameOr(request.displayName(), provider.getDisplayName()));
         connector.exchangePublicToken(connection, request.publicToken());
         return ConnectionView.of(connections.save(connection));
+    }
+
+    private void purgeExpiredStates() {
+        final Instant cutoff = Instant.now().minus(STATE_TTL);
+        pendingStates.values().removeIf(issuedAt -> issuedAt.isBefore(cutoff));
     }
 
     private PlaidConnector plaidConnector(String providerId) {

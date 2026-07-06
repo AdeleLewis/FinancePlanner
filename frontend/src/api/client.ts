@@ -3,11 +3,30 @@ const API = '/api'
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, init)
   if (!response.ok) {
-    const body = await response.text().catch(() => '')
-    throw new Error(`${response.status} ${response.statusText}${body ? `: ${body}` : ''}`)
+    throw new Error(await errorMessage(response))
   }
   const text = await response.text()
   return text ? (JSON.parse(text) as T) : (undefined as T)
+}
+
+// Build a safe, human-readable error. Only the `message` field of a JSON error body is
+// surfaced (truncated) — raw bodies can carry stack traces or HTML that don't belong in the UI.
+async function errorMessage(response: Response): Promise<string> {
+  const fallback = `Request failed (${response.status} ${response.statusText})`
+  const text = await response.text().catch(() => '')
+  if (!text) return fallback
+  try {
+    const body: unknown = JSON.parse(text)
+    if (body && typeof body === 'object' && 'message' in body) {
+      const message = (body as { message: unknown }).message
+      if (typeof message === 'string' && message.trim()) {
+        return `${fallback}: ${message.slice(0, 200)}`
+      }
+    }
+  } catch {
+    // Not JSON — deliberately not surfaced.
+  }
+  return fallback
 }
 
 export const api = {
