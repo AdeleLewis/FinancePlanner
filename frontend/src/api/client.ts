@@ -1,12 +1,39 @@
 const API = '/api'
 
+/** Fired when any API call answers 401 — the session expired, so the app shows the login screen. */
+export const AUTH_EXPIRED_EVENT = 'budget:auth-expired'
+
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API}${path}`, init)
+  const method = (init?.method ?? 'GET').toUpperCase()
+  const headers = new Headers(init?.headers)
+  if (method !== 'GET' && method !== 'HEAD') {
+    // CSRF double-submit: echo the XSRF-TOKEN cookie back as a header on every mutating call.
+    const token = csrfToken()
+    if (token) headers.set('X-XSRF-TOKEN', token)
+  }
+  const response = await fetch(`${API}${path}`, { ...init, headers })
+  if (response.status === 401 && !path.startsWith('/auth/')) {
+    window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
+  }
   if (!response.ok) {
-    throw new Error(await errorMessage(response))
+    throw new ApiError(response.status, await errorMessage(response))
   }
   const text = await response.text()
   return text ? (JSON.parse(text) as T) : (undefined as T)
+}
+
+function csrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
+  return match ? decodeURIComponent(match[1]) : null
 }
 
 // Build a safe, human-readable error. Only the `message` field of a JSON error body is

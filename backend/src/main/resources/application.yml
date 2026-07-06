@@ -28,9 +28,16 @@ spring:
 
 server:
   port: 8080
-  # Bind to loopback only: this is a single-user app with no authentication, so it must not be
-  # reachable from the network. Remove this only after adding real auth (and HTTPS).
+  # Bind to loopback only: single-user app — keep it off the network even now that it has a login.
+  # Expose it more widely only behind HTTPS.
   address: localhost
+  servlet:
+    session:
+      cookie:
+        # Lax blocks the session cookie on cross-site POSTs (CSRF backstop) while still allowing the
+        # top-level redirect back from Monzo's OAuth page to carry the session.
+        same-site: lax
+        http-only: true
 
 app:
   # Encryption key for secret columns at rest (bank tokens / API keys). Supply a long, random value via
