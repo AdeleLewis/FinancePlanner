@@ -89,7 +89,7 @@ export default function Savings() {
     <div className="space-y-8">
       <h2 className="text-2xl font-semibold">Savings</h2>
 
-      <section className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
+      <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-4">
         <h3 className="text-lg font-semibold">Current savings</h3>
         <form
           onSubmit={snapshotForm.handleSubmit((data) => {
@@ -169,7 +169,7 @@ export default function Savings() {
         )}
       </section>
 
-      <section className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
+      <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-4">
         <h3 className="text-lg font-semibold">Savings goal recommendation</h3>
         <form
           onSubmit={recommendForm.handleSubmit((data) => recommend.mutate(data))}

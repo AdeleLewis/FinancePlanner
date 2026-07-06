@@ -155,7 +155,7 @@ function ProviderCard({
   onToast: (kind: Toast['kind'], message: string) => void
 }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <ProviderAvatar providerId={provider.id} />
@@ -394,16 +394,17 @@ function ConnectionRow({
   const reauthHint = useReauthHint(connection)
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between gap-4">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 flex items-center justify-between gap-4">
       <div className="min-w-0 flex items-center gap-3">
         <ProviderAvatar providerId={connection.provider} />
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium">{connection.displayName}</span>
             <span
-              className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_STYLES[connection.status]}`}
+              className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[connection.status]}`}
               role="status"
             >
+              <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
               {humanStatus(connection.status)}
             </span>
           </div>
@@ -516,7 +517,7 @@ function ProviderSkeleton() {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 animate-pulse">
+        <div key={i} className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-3 animate-pulse">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-full bg-gray-200" />
             <div className="h-4 bg-gray-200 rounded w-1/3" />
@@ -533,7 +534,7 @@ function ConnectionsSkeleton() {
   return (
     <div className="space-y-3">
       {[0, 1].map((i) => (
-        <div key={i} className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between animate-pulse">
+        <div key={i} className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 flex items-center justify-between animate-pulse">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-gray-200" />
             <div className="space-y-2">

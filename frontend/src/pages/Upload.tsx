@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
-import { formatGBP } from '../util/format'
+import { StatTile } from '../charts/StatTile'
+import { formatGBP, formatGBPCompact } from '../util/format'
 import type { Transaction, UploadResult } from '../types'
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024
@@ -47,13 +48,28 @@ export default function Upload() {
       <div
         {...getRootProps()}
         className={
-          'border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ' +
+          'border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ' +
           (isDragActive
             ? 'border-blue-500 bg-blue-50'
-            : 'border-gray-300 hover:border-gray-400 bg-white')
+            : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/40 bg-white')
         }
       >
         <input {...getInputProps()} />
+        <svg
+          className={
+            'mx-auto mb-3 h-10 w-10 ' + (isDragActive ? 'text-blue-500' : 'text-gray-300')
+          }
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M12 16V5m0 0l-4 4m4-4l4 4" />
+          <path d="M4 17v2a1 1 0 001 1h14a1 1 0 001-1v-2" />
+        </svg>
         {uploadMutation.isPending ? (
           <p className="text-gray-600">Uploading…</p>
         ) : isDragActive ? (
@@ -91,12 +107,30 @@ export default function Upload() {
             <ClearAllButton count={transactionsQuery.data.length} />
           )}
         </div>
-        {transactionsQuery.isLoading && <p className="text-gray-500">Loading…</p>}
+        {transactionsQuery.isLoading && <TableSkeleton />}
         {transactionsQuery.data && transactionsQuery.data.length === 0 && (
-          <p className="text-gray-500">No transactions yet — upload a CSV to get started.</p>
+          <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 bg-white py-12 text-center">
+            <svg
+              className="h-8 w-8 text-gray-300"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M5 4h9l5 5v11a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z" />
+              <path d="M14 4v5h5M8 13h8M8 17h5" />
+            </svg>
+            <p className="text-sm text-gray-500">
+              No transactions yet — upload a CSV to get started.
+            </p>
+          </div>
         )}
         {transactionsQuery.data && transactionsQuery.data.length > 0 && (
-          <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg">
+          <div className="space-y-4">
+            <TransactionSummary transactions={transactionsQuery.data} />
+            <div className="overflow-x-auto bg-white border border-gray-200 rounded-xl shadow-sm">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
                 <tr>
@@ -110,7 +144,9 @@ export default function Upload() {
               <tbody>
                 {transactionsQuery.data.map((t) => (
                   <tr key={t.id} className="border-b border-gray-100 last:border-0">
-                    <td className="px-4 py-2 text-gray-600 tabular-nums">{t.date}</td>
+                    <td className="px-4 py-2 text-gray-600 tabular-nums whitespace-nowrap">
+                      {formatDay(t.date)}
+                    </td>
                     <td className="px-4 py-2">{t.description}</td>
                     <td className="px-4 py-2">
                       <CategoryCell transaction={t} categories={categoriesQuery.data ?? []} />
@@ -130,9 +166,57 @@ export default function Upload() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// Quick totals for the imported data — same stat-tile language as the dashboard.
+function TransactionSummary({ transactions }: { transactions: Transaction[] }) {
+  const moneyIn = transactions
+    .filter((t) => t.amount > 0)
+    .reduce((sum, t) => sum + t.amount, 0)
+  const moneyOut = transactions
+    .filter((t) => t.amount < 0)
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+  const dates = transactions.map((t) => t.date).sort()
+  const range =
+    dates.length > 0
+      ? dates[0] === dates[dates.length - 1]
+        ? formatDay(dates[0])
+        : `${formatDay(dates[0])} – ${formatDay(dates[dates.length - 1])}`
+      : undefined
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <StatTile
+        label="Transactions"
+        value={transactions.length.toLocaleString('en-GB')}
+        sub={range}
+      />
+      <StatTile label="Money in" value={formatGBPCompact(moneyIn)} />
+      <StatTile label="Money out" value={formatGBPCompact(moneyOut)} />
+      <StatTile label="Net" value={formatGBPCompact(moneyIn - moneyOut)} />
+    </div>
+  )
+}
+
+function formatDay(iso: string): string {
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function TableSkeleton() {
+  return (
+    <div className="animate-pulse rounded-xl border border-gray-200 bg-white p-4 space-y-3" aria-hidden>
+      <div className="h-4 w-1/4 rounded bg-gray-200" />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div key={i} className="h-3 rounded bg-gray-100" />
+      ))}
     </div>
   )
 }
