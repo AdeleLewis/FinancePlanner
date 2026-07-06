@@ -14,6 +14,7 @@ import {
   YAxis,
 } from 'recharts'
 import { api } from '../api/client'
+import { SubscriptionsCard } from '../components/SubscriptionsCard'
 import { ChartCard, ChartEmpty, ChartSkeleton } from '../charts/ChartCard'
 import { MoneyTooltip } from '../charts/ChartTooltip'
 import { StatTile } from '../charts/StatTile'
@@ -83,6 +84,8 @@ export default function Dashboard() {
             <IncomeExpenseChart data={incomeExpenseQuery.data} />
           )}
         </ChartCard>
+
+        <SubscriptionsCard className="lg:col-span-2" />
       </div>
     </div>
   )

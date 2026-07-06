@@ -66,6 +66,19 @@ export type MonthlyIncomeExpense = {
   expenses: number
 }
 
+export type SubscriptionDecision = 'KEEP' | 'CANCEL' | 'UNDECIDED'
+
+export type Subscription = {
+  merchantKey: string
+  name: string
+  category: string
+  monthlyAmount: number
+  lastChargedOn: string
+  nextExpectedOn: string
+  timesCharged: number
+  decision: SubscriptionDecision
+}
+
 export type SavingsSnapshot = {
   id: number
   recordedAt: string
