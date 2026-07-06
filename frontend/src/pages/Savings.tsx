@@ -3,8 +3,19 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import { api } from '../api/client'
-import { formatGBP } from '../util/format'
+import { MoneyTooltip } from '../charts/ChartTooltip'
+import { axisTick, chartColors } from '../charts/theme'
+import { formatGBP, formatGBPCompact } from '../util/format'
 import type { Recommendation, SavingsSnapshot } from '../types'
 
 const SnapshotSchema = z.object({
@@ -119,6 +130,8 @@ export default function Savings() {
             </button>
           </div>
         </form>
+
+        {sortedSnapshots.length >= 2 && <SavingsChart snapshots={sortedSnapshots} />}
 
         {sortedSnapshots.length > 0 && (
           <div className="overflow-x-auto">
@@ -242,6 +255,10 @@ export default function Savings() {
                 {recommendation.monthsRemaining} months remaining
               </span>
             </div>
+            <GoalMeter
+              current={recommendation.currentSavings}
+              target={recommendation.targetAmount}
+            />
             <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
               <Stat label="Gap to close" value={formatGBP(recommendation.gap)} />
               <Stat label="Monthly needed" value={formatGBP(recommendation.monthlyNeeded)} />
@@ -265,6 +282,92 @@ export default function Savings() {
           </div>
         )}
       </section>
+    </div>
+  )
+}
+
+function SavingsChart({ snapshots }: { snapshots: SavingsSnapshot[] }) {
+  // Snapshots arrive newest-first; the chart wants oldest-first. Balances hold
+  // steady between snapshots, so a step line is the honest shape.
+  const data = snapshots
+    .slice()
+    .reverse()
+    .map((s) => ({
+      recordedAt: s.recordedAt,
+      amount: s.amount,
+    }))
+  return (
+    <div>
+      <p className="text-xs font-medium text-gray-500 mb-2">Balance over time</p>
+      <ResponsiveContainer width="100%" height={220}>
+        <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+          <CartesianGrid vertical={false} stroke={chartColors.grid} />
+          <XAxis
+            dataKey="recordedAt"
+            tickFormatter={formatSnapshotDate}
+            tick={axisTick}
+            tickLine={false}
+            axisLine={{ stroke: chartColors.axisLine }}
+            minTickGap={24}
+          />
+          <YAxis
+            tickFormatter={formatGBPCompact}
+            tick={axisTick}
+            tickLine={false}
+            axisLine={false}
+            width={56}
+          />
+          <Tooltip
+            cursor={{ stroke: chartColors.axisLine, strokeWidth: 1 }}
+            content={<MoneyTooltip labelFormatter={formatSnapshotDate} />}
+          />
+          <Area
+            type="stepAfter"
+            dataKey="amount"
+            name="Savings"
+            stroke={chartColors.accent}
+            strokeWidth={2}
+            fill={chartColors.accent}
+            fillOpacity={0.1}
+            dot={{ r: 3, fill: chartColors.accent, stroke: '#ffffff', strokeWidth: 2 }}
+            activeDot={{ r: 4, stroke: '#ffffff', strokeWidth: 2 }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+function formatSnapshotDate(value: string): string {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+function GoalMeter({ current, target }: { current: number; target: number }) {
+  const pct = target > 0 ? Math.min(100, Math.max(0, (current / target) * 100)) : 0
+  return (
+    <div className="mb-3">
+      <div className="flex justify-between text-xs text-gray-600 mb-1">
+        <span>
+          {formatGBP(current)} of {formatGBP(target)}
+        </span>
+        <span className="font-medium tabular-nums">{Math.round(pct)}%</span>
+      </div>
+      <div
+        className="h-2 rounded-full"
+        style={{ backgroundColor: chartColors.accentSoft }}
+        role="progressbar"
+        aria-valuenow={Math.round(pct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div
+          className="h-2 rounded-full"
+          style={{ width: `${pct}%`, backgroundColor: chartColors.accent }}
+        />
+      </div>
     </div>
   )
 }

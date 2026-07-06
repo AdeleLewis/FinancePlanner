@@ -19,7 +19,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <header className="bg-white border-b border-gray-200">
+      <header className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-6">
           <h1 className="text-xl font-semibold">Budget</h1>
           <nav className="flex gap-2">
