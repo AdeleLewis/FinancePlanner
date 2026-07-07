@@ -15,99 +15,131 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 /**
- * Symmetric encryption for secret columns at rest (bank tokens / API keys).
+ * Symmetric encryption for secret columns at rest (bank tokens / API keys), AES-256-GCM with a fresh
+ * random 96-bit IV per value.
  *
- * <p>Uses AES-256-GCM — authenticated encryption, so tampering is detected on decrypt — with a fresh
- * random 96-bit IV per value. The 256-bit key is derived (SHA-256) from {@code app.security.encryption-key}
- * (env {@code APP_ENCRYPTION_KEY}); it lives only in the process environment, never in the database, so a
- * stolen DB file is useless without it.
+ * <p><b>Key custody:</b> the data key is unwrapped from the owner's login password (see
+ * {@link KeyWrapper}) and lives only in process memory between login and logout. Nothing on disk can
+ * decrypt the {@code enc:v2:} rows without that password: a stolen database file (or whole laptop, absent
+ * the password) yields only ciphertext. The cost of that guarantee: bank secrets are unreadable while the
+ * app is locked, and an unrecoverable password means re-connecting the banks.
  *
- * <p>This protects against DB-file/backup theft and the H2 console, <em>not</em> against full host
- * compromise (an attacker with the running process also has the key). Stepping that up means custody in a
- * KMS/HSM — deliberately out of scope for a single-user, self-hosted app. The {@link #encrypt}/{@link #decrypt}
- * seam is the only thing a future KMS swap would touch.
- *
- * <p>Ciphertext is tagged with {@value #PREFIX} so {@link #decrypt} can pass through legacy plaintext rows
- * (written before encryption was enabled); the next write re-stores them encrypted.
+ * <p><b>Formats:</b> {@code enc:v2:} rows use the password-unwrapped session key. Legacy {@code enc:v1:}
+ * rows were keyed from the {@code APP_ENCRYPTION_KEY} environment variable — that variable is now read
+ * only to <em>decrypt</em> old rows (they re-store as v2 on next write). Prefix-less values are legacy
+ * plaintext and pass through on read.
  */
 @Service
 public class EncryptionService {
 
     private static final Logger log = LoggerFactory.getLogger(EncryptionService.class);
 
-    /** Marks a value as produced by this service, and versions the scheme for future migration. */
-    static final String PREFIX = "enc:v1:";
+    /** Legacy scheme: key derived from the APP_ENCRYPTION_KEY environment variable. Decrypt-only. */
+    static final String PREFIX_V1 = "enc:v1:";
+    /** Current scheme: session key unwrapped from the login password. */
+    static final String PREFIX_V2 = "enc:v2:";
     private static final String TRANSFORMATION = "AES/GCM/NoPadding";
     private static final int IV_LENGTH = 12;          // 96-bit IV, the GCM-recommended size
     private static final int TAG_LENGTH_BITS = 128;
 
-    private final String configuredKey;
+    private final String legacyConfiguredKey;
     private final SecureRandom random = new SecureRandom();
-    private SecretKeySpec key;
+    private SecretKeySpec legacyKey;
+    private volatile SecretKeySpec sessionKey;
 
-    public EncryptionService(@Value("${app.security.encryption-key:}") String configuredKey) {
-        this.configuredKey = configuredKey;
+    public EncryptionService(@Value("${app.security.encryption-key:}") String legacyConfiguredKey) {
+        this.legacyConfiguredKey = legacyConfiguredKey;
     }
 
     @PostConstruct
     void init() {
-        if (configuredKey == null || configuredKey.isBlank()) {
-            log.warn("app.security.encryption-key (APP_ENCRYPTION_KEY) is not set — bank tokens/keys will be "
-                    + "stored in PLAINTEXT. Set a long random value before exposing this app beyond localhost.");
+        if (legacyConfiguredKey == null || legacyConfiguredKey.isBlank()) {
             return;
         }
         try {
-            byte[] derived = MessageDigest.getInstance("SHA-256")
-                    .digest(configuredKey.getBytes(StandardCharsets.UTF_8));
-            this.key = new SecretKeySpec(derived, "AES");
+            final byte[] derived = MessageDigest.getInstance("SHA-256")
+                    .digest(legacyConfiguredKey.getBytes(StandardCharsets.UTF_8));
+            legacyKey = new SecretKeySpec(derived, "AES");
+            log.info("APP_ENCRYPTION_KEY is set — it is now used only to read legacy enc:v1 rows, which "
+                    + "re-encrypt under the login password on their next write. Unset it once none remain.");
         } catch (Exception e) {
-            throw new IllegalStateException("Could not initialise encryption key", e);
+            throw new IllegalStateException("Could not initialise the legacy encryption key", e);
         }
     }
 
-    /** Whether encryption is active (a key was configured). When false, values are stored as-is. */
-    public boolean isEnabled() {
-        return key != null;
+    /** Installs the session key unwrapped from the login password. Called on every successful login. */
+    public void unlock(final byte[] dataKey) {
+        sessionKey = new SecretKeySpec(dataKey, "AES");
     }
 
-    /** Encrypt a value for storage. Returns the input unchanged when no key is configured or input is null. */
+    /** Drops the session key (logout / lock). Encrypted values become unreadable until the next login. */
+    public void lock() {
+        sessionKey = null;
+    }
+
+    public boolean isUnlocked() {
+        return sessionKey != null;
+    }
+
+    /** Encrypt a value for storage under the session key. Null passes through (no secret to protect). */
     public String encrypt(String plaintext) {
-        if (plaintext == null || key == null) {
-            return plaintext;
+        if (plaintext == null) {
+            return null;
+        }
+        final SecretKeySpec key = sessionKey;
+        if (key == null) {
+            throw new IllegalStateException(
+                    "The app is locked — log in before storing bank secrets");
         }
         try {
-            byte[] iv = new byte[IV_LENGTH];
+            final byte[] iv = new byte[IV_LENGTH];
             random.nextBytes(iv);
-            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            final Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_LENGTH_BITS, iv));
-            byte[] ciphertext = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+            final byte[] ciphertext = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
 
-            byte[] combined = new byte[iv.length + ciphertext.length];
+            final byte[] combined = new byte[iv.length + ciphertext.length];
             System.arraycopy(iv, 0, combined, 0, iv.length);
             System.arraycopy(ciphertext, 0, combined, iv.length, ciphertext.length);
-            return PREFIX + Base64.getEncoder().encodeToString(combined);
+            return PREFIX_V2 + Base64.getEncoder().encodeToString(combined);
         } catch (Exception e) {
             throw new IllegalStateException("Encryption failed", e);
         }
     }
 
-    /** Decrypt a value from storage. Legacy plaintext (no {@value #PREFIX}) and nulls pass through unchanged. */
+    /** Decrypt a stored value. Legacy plaintext (no prefix) and nulls pass through unchanged. */
     public String decrypt(String stored) {
-        if (stored == null || !stored.startsWith(PREFIX)) {
-            return stored;   // null, or a legacy plaintext row written before encryption was enabled
+        if (stored == null) {
+            return stored;
         }
-        if (key == null) {
-            throw new IllegalStateException("Found encrypted data but no encryption key is configured. "
-                    + "Set APP_ENCRYPTION_KEY to the value used when the data was written.");
+        if (stored.startsWith(PREFIX_V2)) {
+            final SecretKeySpec key = sessionKey;
+            if (key == null) {
+                throw new IllegalStateException(
+                        "The app is locked — log in before reading bank secrets");
+            }
+            return decryptWith(key, stored.substring(PREFIX_V2.length()));
         }
+        if (stored.startsWith(PREFIX_V1)) {
+            if (legacyKey == null) {
+                throw new IllegalStateException("Found data encrypted under the old APP_ENCRYPTION_KEY "
+                        + "scheme but that variable is not set. Set it once more so the data can be read "
+                        + "and migrated.");
+            }
+            return decryptWith(legacyKey, stored.substring(PREFIX_V1.length()));
+        }
+        return stored;   // legacy plaintext row written before encryption existed
+    }
+
+    private String decryptWith(final SecretKeySpec key, final String encoded) {
         try {
-            byte[] combined = Base64.getDecoder().decode(stored.substring(PREFIX.length()));
-            byte[] iv = new byte[IV_LENGTH];
-            byte[] ciphertext = new byte[combined.length - IV_LENGTH];
+            final byte[] combined = Base64.getDecoder().decode(encoded);
+            final byte[] iv = new byte[IV_LENGTH];
+            final byte[] ciphertext = new byte[combined.length - IV_LENGTH];
             System.arraycopy(combined, 0, iv, 0, IV_LENGTH);
             System.arraycopy(combined, IV_LENGTH, ciphertext, 0, ciphertext.length);
 
-            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            final Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_LENGTH_BITS, iv));
             return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
         } catch (Exception e) {

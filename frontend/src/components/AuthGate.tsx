@@ -69,7 +69,7 @@ function SetupScreen() {
     <Shell>
       <AuthCard
         title="Create a password"
-        subtitle="This protects everything in the app. It can't be recovered — if you forget it, you'll have to reset the database."
+        subtitle="One password protects the app and encrypts your bank credentials. It can't be recovered — if you forget it, you'll need to reset the app and reconnect your banks."
         onSubmit={() => {
           const bad = password !== confirm
           setMismatch(bad)

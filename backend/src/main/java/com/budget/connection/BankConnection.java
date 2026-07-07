@@ -17,9 +17,9 @@ import java.time.Instant;
  * A linked account for one {@link BankProvider}, holding the secrets and state needed to sync it.
  *
  * <p>The secret columns ({@link #accessToken}, {@link #refreshToken}, {@link #apiKey}) are encrypted at
- * rest via {@link EncryptedStringConverter} (AES-256-GCM, key from the environment) so a stolen DB file
- * does not expose tokens. Set {@code APP_ENCRYPTION_KEY} to enable it; without a key they fall back to
- * plaintext with a startup warning. Columns are sized generously to hold the base64 ciphertext.
+ * rest via {@link EncryptedStringConverter} (AES-256-GCM, key unwrapped from the owner's login password)
+ * so a stolen DB file does not expose tokens. They are only readable — and writable — while the app is
+ * unlocked. Columns are sized generously to hold the base64 ciphertext.
  */
 @Entity
 @Table(name = "bank_connections")

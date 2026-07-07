@@ -77,6 +77,7 @@ public class AuthController {
             session.invalidate();
         }
         SecurityContextHolder.clearContext();
+        authService.lock();   // seal the vault: bank secrets are unreadable until the next login
         return new StatusView(!authService.isSetup(), false);
     }
 

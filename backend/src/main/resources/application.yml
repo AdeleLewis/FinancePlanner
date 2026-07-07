@@ -40,9 +40,10 @@ server:
         http-only: true
 
 app:
-  # Encryption key for secret columns at rest (bank tokens / API keys). Supply a long, random value via
-  # the APP_ENCRYPTION_KEY environment variable. If blank, secrets are stored in PLAINTEXT (dev only) and
-  # the app logs a warning on startup. Keep this stable — rotating it cannot decrypt existing rows.
+  # LEGACY, read-only: bank secrets are now encrypted under a key unwrapped from the login password —
+  # no environment variable involved. APP_ENCRYPTION_KEY is consulted only to DECRYPT rows written by
+  # the old scheme (enc:v1:); they re-encrypt under the new scheme on their next write. If you never
+  # set this variable before, leave it unset.
   security:
     encryption-key: ${APP_ENCRYPTION_KEY:}
 
